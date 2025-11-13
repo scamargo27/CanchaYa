@@ -124,3 +124,5 @@ class TarifaCancha(models.Model):
     def get_dia_display_custom(self):
         """Retorna el nombre del día en español"""
         return dict(self.DIA_CHOICES)[self.dia_semana]
+    
+    

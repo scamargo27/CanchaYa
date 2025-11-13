@@ -37,7 +37,7 @@ class CanchaAdmin(admin.ModelAdmin):
 
 @admin.register(TarifaCancha)
 class TarifaCanchaAdmin(admin.ModelAdmin):
-    list_display = ['id', 'cancha', 'get_dia_display', 'hora_inicio', 'hora_fin', 'precio', 'titulo']
+    list_display = ['id', 'cancha', 'get_dia_display', 'hora_inicio', 'hora_fin', 'precio_format', 'titulo']
     list_filter = ['dia_semana', 'cancha__club', 'cancha__deporte']
     search_fields = ['cancha__nombre', 'titulo']
     readonly_fields = ['created_at', 'updated_at']
@@ -61,3 +61,8 @@ class TarifaCanchaAdmin(admin.ModelAdmin):
     def get_dia_display(self, obj):
         return obj.get_dia_display_custom()
     get_dia_display.short_description = 'Día'
+
+    def precio_format(self, obj):
+        """Formatea el precio"""
+        return f"${obj.precio:,.0f}"
+    precio_format.short_description = 'Precio'

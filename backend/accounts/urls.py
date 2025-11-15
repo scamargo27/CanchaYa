@@ -1,29 +1,62 @@
-from django.urls import path
+# accounts/urls.py - VERSIÓN CON VIEWSETS Y ROUTER
+
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import (
-    DeportistaRegistroView,
-    ClubRegistroView,
+    DeportistaViewSet,
+    ClubViewSet,
     LoginView,
     LogoutView,
-    MiPerfilView,
-    TestPermisos,
-    TestAutenticado,
+    CambiarPasswordView,
+    MiPerfilGenericoView,
 )
 
 app_name = 'accounts'
 
-urlpatterns = [
-    # Registro
-    path('registro/deportista/', DeportistaRegistroView.as_view(), name='registro-deportista'),
-    path('registro/club/', ClubRegistroView.as_view(), name='registro-club'),
-    
-    # Autenticación
-    path('login/', LoginView.as_view(), name='login'),
-    path('logout/', LogoutView.as_view(), name='logout'),
-    
-    # Perfil
-    path('mi-perfil/', MiPerfilView.as_view(), name='mi-perfil'),
+# ===== ROUTER PARA VIEWSETS =====
+router = DefaultRouter()
+router.register(r'deportistas', DeportistaViewSet, basename='deportista')
+router.register(r'clubes', ClubViewSet, basename='club')
 
-    # Test (eliminar en producción)
-    path('test-publico/', TestPermisos.as_view(), name='test-publico'),
-    path('test-privado/', TestAutenticado.as_view(), name='test-privado'),
+urlpatterns = [
+    # ===== AUTENTICACIÓN (APIViews) =====
+    path('auth/login/', LoginView.as_view(), name='login'),
+    path('auth/logout/', LogoutView.as_view(), name='logout'),
+    path('auth/cambiar-password/', CambiarPasswordView.as_view(), name='cambiar-password'),
+    
+    # ===== PERFIL GENÉRICO (Deprecado pero útil) =====
+    path('mi-perfil/', MiPerfilGenericoView.as_view(), name='mi-perfil-generico'),
+    
+    # ===== VIEWSETS (Router automático) =====
+    path('', include(router.urls)),
 ]
+
+"""
+ENDPOINTS GENERADOS AUTOMÁTICAMENTE POR EL ROUTER:
+
+DEPORTISTAS:
+├── POST   /api/accounts/deportistas/                    - Registro
+├── GET    /api/accounts/deportistas/                    - Listar (admin)
+├── GET    /api/accounts/deportistas/{id}/               - Ver específico
+├── GET    /api/accounts/deportistas/mi-perfil/          - Mi perfil
+├── PUT    /api/accounts/deportistas/mi-perfil/          - Actualizar completo
+├── PATCH  /api/accounts/deportistas/mi-perfil/          - Actualizar parcial
+└── POST   /api/accounts/deportistas/desactivar-cuenta/  - Desactivar
+
+CLUBES:
+├── POST   /api/accounts/clubes/                    - Registro
+├── GET    /api/accounts/clubes/                    - Listar (público)
+├── GET    /api/accounts/clubes/{id}/               - Ver específico
+├── GET    /api/accounts/clubes/mi-perfil/          - Mi perfil
+├── PUT    /api/accounts/clubes/mi-perfil/          - Actualizar completo
+├── PATCH  /api/accounts/clubes/mi-perfil/          - Actualizar parcial
+└── POST   /api/accounts/clubes/desactivar-cuenta/  - Desactivar
+
+AUTENTICACIÓN:
+├── POST   /api/accounts/auth/login/            - Login
+├── POST   /api/accounts/auth/logout/           - Logout
+└── POST   /api/accounts/auth/cambiar-password/ - Cambiar contraseña
+
+UTILIDAD:
+└── GET    /api/accounts/mi-perfil/  - Perfil genérico 
+"""

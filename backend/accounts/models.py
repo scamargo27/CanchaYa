@@ -1,8 +1,9 @@
+# accounts/models.py 
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from core.models import Departamento, Ciudad, Deporte
 
-# Create your models here.
+
 class User(AbstractUser):
     """
     Usuario base personalizado que extiende AbstractUser de Django.
@@ -49,8 +50,16 @@ class Deportista(models.Model):
     apellido = models.CharField(max_length=100)
     telefono = models.CharField(max_length=20, blank=True, null=True)
     documento_identidad = models.CharField(max_length=20, unique=True)
-    avatar_url = models.URLField(max_length=255, blank=True, null=True)
+    avatar = models.ImageField(
+        upload_to='deportistas/avatars/',
+        blank=True,
+        null=True,
+        help_text='Foto de perfil del deportista'
+    )
     is_activo = models.BooleanField(default=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         verbose_name = 'Deportista'
@@ -83,7 +92,12 @@ class Club(models.Model):
         help_text='Ejemplo: Lunes a Domingo 6am - 10pm'
     )
     informacion = models.TextField(blank=True, null=True)
-    logo_url = models.URLField(max_length=255, blank=True, null=True)
+    logo = models.ImageField(
+        upload_to='clubes/logos/',
+        blank=True,
+        null=True,
+        help_text='Logo del club deportivo'
+    )
     is_activo = models.BooleanField(default=True)
     
     departamento = models.ForeignKey(
@@ -96,6 +110,9 @@ class Club(models.Model):
         on_delete=models.RESTRICT,
         related_name='clubes'
     )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         verbose_name = 'Club'

@@ -1,39 +1,39 @@
 # Python
-*.py[cod]
-*$py.class
-*.so
-.Python
-__pycache__/
-*.pyc
+#*.py[cod]
+#*$py.class
+#*.so
+#.Python
+#__pycache__/
+#*.pyc
 
 # Django
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+#*.log
+#local_settings.py
+#db.sqlite3
+#db.sqlite3-journal
 
 # Media files (opcional - dependiendo si quieres versionar fotos)
-media/
+#media/
 
 # Static files
-staticfiles/
+#staticfiles/
 
 # Environment variables
-.env
-.env.local
+#.env
+#.env.local
 
 # Virtual environment
-venv/
-env/
-.venv/
+#venv/
+#env/
+#.venv/
 
 # IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+#.vscode/
+#.idea/
+#*.swp
+#*.swo
+#*~
 
 # OS
-.DS_Store
-Thumbs.db
+#.DS_Store
+#Thumbs.db

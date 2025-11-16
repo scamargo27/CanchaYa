@@ -1,5 +1,3 @@
-# accounts/urls.py - VERSIÓN CON VIEWSETS Y ROUTER
-
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
@@ -32,7 +30,7 @@ urlpatterns = [
 ]
 
 """
-ENDPOINTS GENERADOS AUTOMÁTICAMENTE POR EL ROUTER:
+ENDPOINTS:
 
 DEPORTISTAS:
 ├── POST   /api/accounts/deportistas/                    - Registro

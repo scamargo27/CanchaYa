@@ -1,5 +1,3 @@
-# accounts/serializers.py - VERSIÓN COMPLETA CON VIEWSETS
-
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from .models import User, Deportista, Club

@@ -66,8 +66,8 @@ INSTALLED_APPS = [
     #LOCAL APPS
     'core',
     'accounts',
-    'canchas'
-    # 'tasks',
+    'canchas',
+    'reservas'
 ]
 
 MIDDLEWARE = [

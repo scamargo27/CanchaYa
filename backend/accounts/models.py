@@ -6,13 +6,18 @@ from core.models import Departamento, Ciudad, Deporte
 class User(AbstractUser):
     """
     Usuario base personalizado que extiende AbstractUser de Django.
-    Este modelo permite tener un campo 'tipo_usuario' para diferenciar
-    entre Deportista y Club.
+    El username se genera automáticamente desde el email.
     """
     TIPO_USUARIO_CHOICES = [
         ('deportista', 'Deportista'),
         ('club', 'Club'),
     ]
+    
+    email = models.EmailField(
+        'correo electrónico',
+        unique=True,
+        blank=False
+    )
     
     tipo_usuario = models.CharField(
         max_length=20,
@@ -24,8 +29,14 @@ class User(AbstractUser):
         verbose_name = 'Usuario'
         verbose_name_plural = 'Usuarios'
     
+    def save(self, *args, **kwargs):
+        """Auto-genera username desde email si no existe"""
+        if not self.username:
+            self.username = self.email
+        super().save(*args, **kwargs)
+    
     def __str__(self):
-        return self.username
+        return self.email
 
 
 class Deportista(models.Model):

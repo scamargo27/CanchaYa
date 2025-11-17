@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/core/', include('core.urls')),
     path('api/accounts/', include('accounts.urls')),
     path('api/', include('canchas.urls')),
+    #path('api/reservas/', include('reservas.urls')),
 ]
 
 # Servir archivos media en desarrollo

@@ -41,13 +41,13 @@ class DeportistaRegistroSerializer(serializers.ModelSerializer):
         return data
     
     def create(self, validated_data):
-        """Crea el usuario y el perfil de deportista"""
+        """Crea el usuario y actualiza el perfil de deportista creado por el signal"""
         # Extraer datos
         email = validated_data.pop('email')
         password = validated_data.pop('password')
         validated_data.pop('password_confirm')
         
-        # Crear el User
+        # Crear el User (el signal creará automáticamente el perfil básico)
         user = User.objects.create_user(
             username=email,
             email=email,
@@ -55,11 +55,13 @@ class DeportistaRegistroSerializer(serializers.ModelSerializer):
             tipo_usuario='deportista'
         )
         
-        # Crear el perfil Deportista
-        deportista = Deportista.objects.create(
-            user=user,
-            **validated_data
-        )
+        # Obtener el perfil Deportista que creó el signal
+        deportista = user.deportista_profile
+        
+        # Actualizar con los datos reales del formulario
+        for field, value in validated_data.items():
+            setattr(deportista, field, value)
+        deportista.save()
         
         return deportista
 
@@ -74,10 +76,8 @@ class ClubRegistroSerializer(serializers.ModelSerializer):
         model = Club
         fields = [
             'email', 'password', 'password_confirm',
-            'nombre', 'nit', 'direccion',
-            'telefono_1', 'telefono_2',
-            'departamento', 'ciudad',
-            'disponibilidad', 'informacion', 'logo'
+            'nombre', 'nit', 'direccion', 'telefono_1', 'telefono_2',
+            'departamento', 'ciudad', 'disponibilidad', 'informacion', 'logo'
         ]
     
     def validate_email(self, value):
@@ -101,13 +101,13 @@ class ClubRegistroSerializer(serializers.ModelSerializer):
         return data
     
     def create(self, validated_data):
-        """Crea el usuario y el perfil de club"""
+        """Crea el usuario y actualiza el perfil de club creado por el signal"""
         # Extraer datos
         email = validated_data.pop('email')
         password = validated_data.pop('password')
         validated_data.pop('password_confirm')
         
-        # Crear el User
+        # Crear el User (el signal creará automáticamente el perfil básico)
         user = User.objects.create_user(
             username=email,
             email=email,
@@ -115,14 +115,15 @@ class ClubRegistroSerializer(serializers.ModelSerializer):
             tipo_usuario='club'
         )
         
-        # Crear el perfil Club
-        club = Club.objects.create(
-            user=user,
-            **validated_data
-        )
+        # Obtener el perfil Club que creó el signal
+        club = user.club_profile
+        
+        # Actualizar con los datos reales del formulario
+        for field, value in validated_data.items():
+            setattr(club, field, value)
+        club.save()
         
         return club
-
 
 # ===== SERIALIZERS DE LECTURA =====
 

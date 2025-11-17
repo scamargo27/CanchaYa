@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // IMPORTAR useNavigate
 import { Calendar, MapPin, Phone, Mail, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Datos de ejemplo para los clubes
@@ -20,6 +21,7 @@ const clubsData = {
 };
 
 const BookingView = () => {
+  const navigate = useNavigate(); // INICIALIZAR useNavigate
   const clubId = 'polideportivo-indoor';
   const club = clubsData[clubId];
   
@@ -97,8 +99,28 @@ const BookingView = () => {
     setSelectedCourt(court);
   };
 
+  // FUNCIÓN ACTUALIZADA - Navegar a página de confirmación
   const handleConfirmBooking = () => {
-    alert(`Reserva confirmada:\nDeporte: ${selectedSport.name}\nFecha: ${selectedDate}/${currentMonth.getMonth() + 1}/${currentMonth.getFullYear()}\nHora: ${selectedTime}\nCancha: ${selectedCourt.name}\nPrecio: S/ ${selectedCourt.price}`);
+    // Formatear fecha
+    const formattedDate = `${selectedDate}/${currentMonth.getMonth() + 1}/${currentMonth.getFullYear()}`;
+    
+    // Navegar con los datos de la reserva
+    navigate('/confirmar-reserva', {
+      state: {
+        reserva: {
+          clubNombre: club.name,
+          clubTelefono: club.phone,
+          clubEmail: club.email,
+          clubDireccion: club.address,
+          canchaNombre: selectedCourt.name,
+          deporteNombre: selectedSport.name,
+          capacidad: selectedCourt.players,
+          fecha: formattedDate,
+          hora: selectedTime,
+          precio: selectedCourt.price
+        }
+      }
+    });
   };
 
   const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
@@ -111,7 +133,10 @@ const BookingView = () => {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
+            <button 
+              onClick={() => navigate('/buscar')} // Botón volver funcional
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+            >
               <ChevronLeft className="w-5 h-5" />
               Volver a la búsqueda
             </button>
@@ -321,14 +346,14 @@ const BookingView = () => {
                 </div>
               )}
 
-              {/* Botón de confirmación */}
+              {/* Botón de confirmación - ACTUALIZADO */}
               {selectedCourt && (
                 <div className="mt-6 pl-10 animate-fadeIn">
                   <button
                     onClick={handleConfirmBooking}
                     className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                   >
-                    Confirmar Reserva
+                    Continuar con la Reserva
                   </button>
                 </div>
               )}
@@ -420,10 +445,8 @@ const BookingView = () => {
           </div>
         </div>
       </div>
-
-
     </div>
   );
 };
 
-export default BookingView;     
+export default BookingView;

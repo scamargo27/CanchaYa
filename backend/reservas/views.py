@@ -234,15 +234,15 @@ class ReservaViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='disponibilidad-cancha/(?P<cancha_id>[^/.]+)')
     def disponibilidad_cancha(self, request, cancha_id=None):
         """
-        Consultar la disponibilidad de una cancha para una fecha específica.
+        Consultar la disponibilidad de una cancha por HORA para una fecha específica.
         POST /api/reservas/disponibilidad-cancha/{cancha_id}/
-        
+    
         Body:
         {
             "fecha": "2025-11-22"
         }
-        
-        Retorna los horarios disponibles según las tarifas y reservas existentes.
+    
+        Retorna los SLOTS POR HORA disponibles según las tarifas y reservas existentes.
         """
         # Validar que la cancha existe y está activa
         try:
@@ -251,66 +251,88 @@ class ReservaViewSet(viewsets.ModelViewSet):
             return Response({
                 'error': 'Cancha no encontrada'
             }, status=status.HTTP_404_NOT_FOUND)
-        
+    
         if not cancha.is_activa:
             return Response({
                 'error': 'Esta cancha no está disponible para reservas'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+    
         # Validar fecha
         serializer = DisponibilidadCanchaSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         fecha = serializer.validated_data['fecha']
-        
+    
         # Obtener día de la semana (0=Domingo en la DB)
         dia_semana = fecha.weekday()
         dia_semana_db = (dia_semana + 1) % 7
-        
+    
         # Obtener tarifas para ese día
         tarifas = TarifaCancha.objects.filter(
             cancha=cancha,
             dia_semana=dia_semana_db
         ).order_by('hora_inicio')
-        
+    
         if not tarifas.exists():
             return Response({
                 'exito': True,
                 'cancha': {
                     'id': cancha.id,
                     'nombre': cancha.nombre,
-                    'club': cancha.club.nombre
+                    'club': cancha.club.nombre,
+                    'deporte': cancha.deporte.nombre,
+                    'capacidad': cancha.capacidad_jugadores,
+                    'techada': cancha.is_techada
                 },
                 'fecha': fecha,
                 'mensaje': 'No hay horarios disponibles para esta fecha',
-                'horarios_disponibles': []
+                'slots_disponibles': []
             })
-        
+    
         # Obtener reservas existentes para esa fecha
         reservas_existentes = Reserva.objects.filter(
             cancha=cancha,
             fecha=fecha,
             estado__in=['pendiente', 'confirmada']
-        ).order_by('hora_inicio')
-        
-        # Construir lista de horarios disponibles
-        horarios_disponibles = []
-        
+        ).values_list('hora_inicio', 'hora_fin')
+    
+        # Convertir reservas a lista de tuplas para fácil comparación
+        reservas_list = [(r[0], r[1]) for r in reservas_existentes]
+    
+        # Construir slots por hora disponibles
+        slots_disponibles = []
+    
         for tarifa in tarifas:
-            # Verificar si hay conflicto con alguna reserva
-            conflicto = False
-            for reserva in reservas_existentes:
-                if not (tarifa.hora_fin <= reserva.hora_inicio or tarifa.hora_inicio >= reserva.hora_fin):
-                    conflicto = True
-                    break
-            
-            if not conflicto:
-                horarios_disponibles.append({
-                    'hora_inicio': tarifa.hora_inicio,
-                    'hora_fin': tarifa.hora_fin,
-                    'precio': float(tarifa.precio),
-                    'titulo': tarifa.titulo or f'{tarifa.hora_inicio} - {tarifa.hora_fin}'
-                })
+            # Generar slots de 1 hora dentro del rango de la tarifa
+            hora_actual = datetime.combine(fecha, tarifa.hora_inicio)
+            hora_fin_tarifa = datetime.combine(fecha, tarifa.hora_fin)
         
+            while hora_actual < hora_fin_tarifa:
+                hora_siguiente = hora_actual + timedelta(hours=1)
+            
+                # Verificar si este slot específico tiene conflicto con alguna reserva
+                slot_ocupado = False
+            
+                for reserva_inicio, reserva_fin in reservas_list:
+                    reserva_inicio_dt = datetime.combine(fecha, reserva_inicio)
+                    reserva_fin_dt = datetime.combine(fecha, reserva_fin)
+                
+                    # Hay conflicto si los rangos se solapan
+                    # Solapamiento: slot_inicio < reserva_fin AND slot_fin > reserva_inicio
+                    if hora_actual < reserva_fin_dt and hora_siguiente > reserva_inicio_dt:
+                        slot_ocupado = True
+                        break
+            
+                # Si el slot está libre, agregarlo a la lista
+                if not slot_ocupado:
+                    slots_disponibles.append({
+                        'hora_inicio': hora_actual.time().strftime('%H:%M:%S'),
+                        'hora_fin': hora_siguiente.time().strftime('%H:%M:%S'),
+                        'precio_hora': float(tarifa.precio),  # Precio por hora
+                        'tarifa_titulo': tarifa.titulo or f'Tarifa {tarifa.hora_inicio}-{tarifa.hora_fin}'
+                    })
+            
+                hora_actual = hora_siguiente
+    
         return Response({
             'exito': True,
             'cancha': {
@@ -322,6 +344,7 @@ class ReservaViewSet(viewsets.ModelViewSet):
                 'techada': cancha.is_techada
             },
             'fecha': fecha,
-            'total_horarios': len(horarios_disponibles),
-            'horarios_disponibles': horarios_disponibles
+            'total_slots': len(slots_disponibles),
+            'slots_disponibles': slots_disponibles
         })
+  

@@ -8,4 +8,4 @@ class AccountsConfig(AppConfig):
 
     def ready(self):
         """Importa los signals cuando la app esté lista"""
-        import accounts.signals
+        #import accounts.signals

@@ -193,13 +193,12 @@ REST_FRAMEWORK = {
     ],
 }
 
-# CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "http://localhost:4200",
-]
+CORS_ALLOWED_ORIGINS = config(
+    'CORS_ALLOWED_ORIGINS', 
+    default='http://localhost:3000,http://localhost:5173'
+).split(',')
+
+CORS_ALLOW_CREDENTIALS = True
 
 # Para Django REST Framework Browsable API
 CSRF_TRUSTED_ORIGINS = [
@@ -208,6 +207,8 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
+
 
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'

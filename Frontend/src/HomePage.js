@@ -1,6 +1,10 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
+// 👇 Importa tus imágenes locales
+import logo from "./assets/logo-cancha.png";
+import heroImg from "./assets/hero-cancha.jpg";
+
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -9,14 +13,16 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
             <img
-              src="https://cdn-icons-png.flaticon.com/512/3097/3097144.png"
-              alt="logo"
-              className="w-7 h-7"
+              src={logo}
+              alt="Logo CanchaYa"
+              className="w-8 h-8"
             />
-            <span className="font-bold text-xl text-blue-700">CanchaYa</span>
+            <span className="font-extrabold text-xl text-blue-700">
+              CanchaYa
+            </span>
           </div>
+
           <nav className="flex items-center gap-6 text-sm text-slate-700">
-            {/* Podrías agregar más links aquí si tu Figma los tiene */}
             <Link to="/login" className="font-semibold hover:underline">
               Iniciar Sesión
             </Link>
@@ -27,35 +33,39 @@ export default function HomePage() {
       {/* CONTENIDO PRINCIPAL */}
       <main className="flex-1">
         {/* HERO */}
-        <section className="max-w-6xl mx-auto px-6 py-12 lg:py-16 grid lg:grid-cols-2 gap-10 items-center">
+        <section className="max-w-6xl mx-auto px-6 py-12 lg:py-20 grid lg:grid-cols-2 gap-10 items-center">
+          {/* Texto */}
           <div className="space-y-6">
             <h1 className="text-4xl lg:text-5xl font-extrabold text-slate-900 leading-tight">
               Reserva tu cancha
               <br />
               deportiva en segundos
             </h1>
+
             <p className="text-lg text-gray-600 max-w-xl">
               La plataforma más completa para encontrar y reservar espacios
               deportivos. Conectamos deportistas con los mejores complejos de la
               ciudad.
             </p>
 
-            {/* BOTONES PRINCIPALES */}
+            {/* BOTONES HERO */}
             <div className="flex flex-wrap gap-4">
-              {/* Desplaza a la sección de características */}
-              <a
-                href="#features"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-black"
+              {/* Buscar canchas → vista de búsqueda */}
+              <Link
+                to="/deportista/buscar"
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-black"
               >
-                <span>🔍</span> Buscar Canchas
-              </a>
+                <span>🔍</span>
+                <span>Buscar Canchas</span>
+              </Link>
 
-              {/* Ir a registro de clubes */}
+              {/* Registrar club → registro */}
               <Link
                 to="/registrarse"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-gray-300 bg-white text-sm font-semibold hover:bg-gray-50"
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-xl border border-gray-300 bg-white text-sm font-semibold hover:bg-gray-50"
               >
-                <span>🏢</span> Registrar mi Club
+                <span>🏢</span>
+                <span>Registrar mi Club</span>
               </Link>
             </div>
 
@@ -79,15 +89,15 @@ export default function HomePage() {
           {/* IMAGEN CANCHA */}
           <div className="flex justify-center">
             <img
-              src="https://images.unsplash.com/photo-1518607692855-9fdfe09c2e4f"
-              alt="Cancha deportiva aérea"
+              src={heroImg}
+              alt="Cancha deportiva"
               className="w-full max-w-xl rounded-3xl object-cover shadow-xl"
             />
           </div>
         </section>
 
-        {/* SECCIÓN: TODO LO QUE NECESITAS */}
-        <section id="features" className="bg-gray-50 py-14">
+        {/* TODO LO QUE NECESITAS */}
+        <section id="features" className="bg-gray-50 py-16">
           <div className="max-w-6xl mx-auto px-6">
             <h2 className="text-3xl font-bold text-center text-slate-900">
               Todo lo que necesitas en una plataforma
@@ -98,7 +108,7 @@ export default function HomePage() {
             </p>
 
             <div className="grid md:grid-cols-3 gap-6">
-              {/* Tarjeta 1 */}
+              {/* 1 */}
               <div className="bg-white rounded-3xl shadow-sm p-6 flex flex-col gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center">
                   <span className="text-xl">🔍</span>
@@ -112,7 +122,7 @@ export default function HomePage() {
                 </p>
               </div>
 
-              {/* Tarjeta 2 */}
+              {/* 2 */}
               <div className="bg-white rounded-3xl shadow-sm p-6 flex flex-col gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-green-100 flex items-center justify-center">
                   <span className="text-xl">📅</span>
@@ -126,7 +136,7 @@ export default function HomePage() {
                 </p>
               </div>
 
-              {/* Tarjeta 3 */}
+              {/* 3 */}
               <div className="bg-white rounded-3xl shadow-sm p-6 flex flex-col gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center">
                   <span className="text-xl">💳</span>
@@ -138,19 +148,19 @@ export default function HomePage() {
                 </p>
               </div>
 
-              {/* Tarjeta 4 */}
+              {/* 4 */}
               <div className="bg-white rounded-3xl shadow-sm p-6 flex flex-col gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center">
                   <span className="text-xl">📊</span>
                 </div>
                 <h3 className="font-semibold text-slate-900">Panel de Control</h3>
                 <p className="text-sm text-gray-500">
-                  Dashboard completo para administradores con métricas,
-                  estadísticas y gestión de reservas.
+                  Dashboard completo para administradores con métricas y gestión
+                  de reservas.
                 </p>
               </div>
 
-              {/* Tarjeta 5 */}
+              {/* 5 */}
               <div className="bg-white rounded-3xl shadow-sm p-6 flex flex-col gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-pink-100 flex items-center justify-center">
                   <span className="text-xl">📱</span>
@@ -162,7 +172,7 @@ export default function HomePage() {
                 </p>
               </div>
 
-              {/* Tarjeta 6 */}
+              {/* 6 */}
               <div className="bg-white rounded-3xl shadow-sm p-6 flex flex-col gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center">
                   <span className="text-xl">🛡️</span>
@@ -171,8 +181,8 @@ export default function HomePage() {
                   Confianza y Seguridad
                 </h3>
                 <p className="text-sm text-gray-500">
-                  Sistema de verificación de clubes y reseñas de usuarios. Tu
-                  seguridad es nuestra prioridad.
+                  Sistema de verificación de clubes y reseñas de usuarios.
+                  Tu seguridad es nuestra prioridad.
                 </p>
               </div>
             </div>
@@ -180,10 +190,7 @@ export default function HomePage() {
         </section>
 
         {/* CÓMO FUNCIONA */}
-        <section
-          id="how-it-works"
-          className="bg-white py-16 flex flex-col items-center"
-        >
+        <section className="bg-white py-16">
           <div className="max-w-4xl mx-auto px-6 text-center">
             <h2 className="text-3xl font-bold text-slate-900">
               Cómo funciona
@@ -233,24 +240,28 @@ export default function HomePage() {
         </section>
 
         {/* CTA AZUL */}
-        <section id="cta" className="bg-blue-600 py-14 text-center text-white">
+        <section className="bg-blue-600 py-16 text-center text-white">
           <h2 className="text-3xl font-bold mb-2">¿Listo para empezar?</h2>
           <p className="text-blue-100 mb-6">
             Únete a miles de deportistas que ya confían en CanchaYa
           </p>
 
+          {/* 👇 Ahora los dos botones: Soy Deportista + Tengo un Club */}
           <div className="flex flex-wrap justify-center gap-4">
             <Link
               to="/registrarse"
-              className="px-6 py-3 rounded-xl bg-white text-blue-700 text-sm font-semibold hover:bg-blue-50 inline-flex items-center gap-2"
+              className="px-8 py-3 rounded-xl bg-white text-blue-700 text-sm font-semibold hover:bg-blue-50 inline-flex items-center gap-2"
             >
-              <span>👤</span> Soy Deportista
+              <span>👤</span>
+              <span>Soy Deportista</span>
             </Link>
+
             <Link
               to="/registrarse"
-              className="px-6 py-3 rounded-xl bg-blue-500 text-white text-sm font-semibold hover:bg-blue-400 inline-flex items-center gap-2"
+              className="px-8 py-3 rounded-xl bg-blue-500 text-white text-sm font-semibold hover:bg-blue-400 inline-flex items-center gap-2"
             >
-              <span>🏢</span> Tengo un Club
+              <span>🏢</span>
+              <span>Tengo un Club</span>
             </Link>
           </div>
         </section>
@@ -262,8 +273,8 @@ export default function HomePage() {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <img
-                src="https://cdn-icons-png.flaticon.com/512/3097/3097144.png"
-                alt="logo"
+                src={logo}
+                alt="Logo CanchaYa"
                 className="w-6 h-6"
               />
               <span className="font-bold text-blue-400">CanchaYa</span>

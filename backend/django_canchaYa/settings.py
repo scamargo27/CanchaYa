@@ -59,7 +59,7 @@ INSTALLED_APPS = [
 
     #LOCAL APPS
     'core',
-    'accounts',
+    'accounts.apps.AccountsConfig',
     'canchas',
     'reservas'
 ]

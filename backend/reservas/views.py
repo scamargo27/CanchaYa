@@ -15,6 +15,12 @@ from .serializers import (
 from canchas.models import Cancha, TarifaCancha
 from .permissions import IsDeportistaOrClubOwner
 
+# Intentar importar el modelo de notificaciones si existe
+try:
+    from notificaciones.models import Notificacion
+except ImportError:
+    Notificacion = None
+
 
 # ===== VIEWSETS =====
 
@@ -23,12 +29,13 @@ class ReservaViewSet(viewsets.ModelViewSet):
     ViewSet para gestionar reservas.
     
     Endpoints disponibles:
-    - GET /api/reservas/ - Listar reservas (filtra según tipo de usuario)
-    - POST /api/reservas/ - Crear reserva (solo deportistas)
-    - GET /api/reservas/{id}/ - Ver detalle de una reserva
-    - GET /api/reservas/mis-reservas/ - Reservas del deportista autenticado
-    - GET /api/reservas/reservas-club/ - Reservas del club autenticado
+    - GET  /api/reservas/                       - Listar reservas (filtra según tipo de usuario)
+    - POST /api/reservas/                       - Crear reserva (solo deportistas)
+    - GET  /api/reservas/{id}/                  - Ver detalle de una reserva
+    - GET  /api/reservas/mis-reservas/          - Reservas del deportista autenticado
+    - GET  /api/reservas/reservas-club/         - Reservas del club autenticado
     - POST /api/reservas/disponibilidad-cancha/{cancha_id}/ - Ver disponibilidad
+    - POST /api/reservas/{id}/cancelar/         - Cancelar una reserva
     """
     queryset = Reserva.objects.select_related(
         'cancha',
@@ -69,24 +76,16 @@ class ReservaViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         
         if user.tipo_usuario == 'deportista':
-            # Deportistas solo ven sus reservas
             return queryset.filter(deportista=user.deportista_profile)
-        
         elif user.tipo_usuario == 'club':
-            # Clubes solo ven reservas de sus canchas
             return queryset.filter(cancha__club=user.club_profile)
-        
         return queryset.none()
     
     def create(self, request, *args, **kwargs):
         """
         Crear una nueva reserva.
         POST /api/reservas/
-        
-        Solo deportistas pueden crear reservas.
-        La reserva se confirma automáticamente.
         """
-        # Verificar que sea deportista
         if request.user.tipo_usuario != 'deportista':
             return Response({
                 'error': 'Solo los deportistas pueden crear reservas',
@@ -97,7 +96,20 @@ class ReservaViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         reserva = serializer.save()
         
-        # Serializar respuesta con el serializer completo
+        # ===== NOTIFICACIÓN: RESERVA CONFIRMADA (solo si el modelo existe) =====
+        if Notificacion is not None:
+            Notificacion.objects.create(
+                usuario=request.user,
+                tipo="reserva_confirmada",
+                titulo="Reserva confirmada",
+                mensaje=(
+                    f"Tu reserva para {reserva.cancha.nombre} el "
+                    f"{reserva.fecha} de {reserva.hora_inicio} a {reserva.hora_fin} "
+                    f"ha sido confirmada."
+                ),
+            )
+        # =======================================================================
+        
         response_serializer = ReservaSerializer(reserva, context={'request': request})
         
         return Response({
@@ -111,9 +123,6 @@ class ReservaViewSet(viewsets.ModelViewSet):
         """
         Listar reservas.
         GET /api/reservas/
-        
-        Deportistas ven sus reservas.
-        Clubes ven reservas de sus canchas.
         """
         queryset = self.filter_queryset(self.get_queryset())
         
@@ -148,11 +157,6 @@ class ReservaViewSet(viewsets.ModelViewSet):
         """
         Obtener todas las reservas del deportista autenticado.
         GET /api/reservas/mis-reservas/
-        
-        Query params opcionales:
-        - ?estado=confirmada - Filtrar por estado
-        - ?futuras=true - Solo reservas futuras
-        - ?pasadas=true - Solo reservas pasadas
         """
         if request.user.tipo_usuario != 'deportista':
             return Response({
@@ -161,16 +165,13 @@ class ReservaViewSet(viewsets.ModelViewSet):
         
         queryset = self.get_queryset()
         
-        # Filtrar por futuras o pasadas
         if request.query_params.get('futuras') == 'true':
             queryset = queryset.filter(fecha__gte=timezone.now().date())
         elif request.query_params.get('pasadas') == 'true':
             queryset = queryset.filter(fecha__lt=timezone.now().date())
         
-        # Aplicar filtros adicionales
         queryset = self.filter_queryset(queryset)
         
-        # Agrupar por estado
         proximas = queryset.filter(
             fecha__gte=timezone.now().date(),
             estado__in=['pendiente', 'confirmada']
@@ -198,11 +199,6 @@ class ReservaViewSet(viewsets.ModelViewSet):
         """
         Obtener todas las reservas de las canchas del club autenticado.
         GET /api/reservas/reservas-club/
-        
-        Query params opcionales:
-        - ?cancha={id} - Filtrar por cancha específica
-        - ?fecha={YYYY-MM-DD} - Filtrar por fecha
-        - ?estado=confirmada - Filtrar por estado
         """
         if request.user.tipo_usuario != 'club':
             return Response({
@@ -211,7 +207,6 @@ class ReservaViewSet(viewsets.ModelViewSet):
         
         queryset = self.filter_queryset(self.get_queryset())
         
-        # Estadísticas
         total = queryset.count()
         hoy = queryset.filter(fecha=timezone.now().date()).count()
         proximas = queryset.filter(
@@ -236,15 +231,7 @@ class ReservaViewSet(viewsets.ModelViewSet):
         """
         Consultar la disponibilidad de una cancha por HORA para una fecha específica.
         POST /api/reservas/disponibilidad-cancha/{cancha_id}/
-    
-        Body:
-        {
-            "fecha": "2025-11-22"
-        }
-    
-        Retorna los SLOTS POR HORA disponibles según las tarifas y reservas existentes.
         """
-        # Validar que la cancha existe y está activa
         try:
             cancha = Cancha.objects.select_related('club', 'deporte').get(id=cancha_id)
         except Cancha.DoesNotExist:
@@ -257,16 +244,13 @@ class ReservaViewSet(viewsets.ModelViewSet):
                 'error': 'Esta cancha no está disponible para reservas'
             }, status=status.HTTP_400_BAD_REQUEST)
     
-        # Validar fecha
         serializer = DisponibilidadCanchaSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         fecha = serializer.validated_data['fecha']
     
-        # Obtener día de la semana (0=Domingo en la DB)
         dia_semana = fecha.weekday()
         dia_semana_db = (dia_semana + 1) % 7
     
-        # Obtener tarifas para ese día
         tarifas = TarifaCancha.objects.filter(
             cancha=cancha,
             dia_semana=dia_semana_db
@@ -288,46 +272,38 @@ class ReservaViewSet(viewsets.ModelViewSet):
                 'slots_disponibles': []
             })
     
-        # Obtener reservas existentes para esa fecha
         reservas_existentes = Reserva.objects.filter(
             cancha=cancha,
             fecha=fecha,
             estado__in=['pendiente', 'confirmada']
         ).values_list('hora_inicio', 'hora_fin')
     
-        # Convertir reservas a lista de tuplas para fácil comparación
         reservas_list = [(r[0], r[1]) for r in reservas_existentes]
     
-        # Construir slots por hora disponibles
         slots_disponibles = []
     
         for tarifa in tarifas:
-            # Generar slots de 1 hora dentro del rango de la tarifa
             hora_actual = datetime.combine(fecha, tarifa.hora_inicio)
             hora_fin_tarifa = datetime.combine(fecha, tarifa.hora_fin)
         
             while hora_actual < hora_fin_tarifa:
                 hora_siguiente = hora_actual + timedelta(hours=1)
             
-                # Verificar si este slot específico tiene conflicto con alguna reserva
                 slot_ocupado = False
             
                 for reserva_inicio, reserva_fin in reservas_list:
                     reserva_inicio_dt = datetime.combine(fecha, reserva_inicio)
                     reserva_fin_dt = datetime.combine(fecha, reserva_fin)
                 
-                    # Hay conflicto si los rangos se solapan
-                    # Solapamiento: slot_inicio < reserva_fin AND slot_fin > reserva_inicio
                     if hora_actual < reserva_fin_dt and hora_siguiente > reserva_inicio_dt:
                         slot_ocupado = True
                         break
             
-                # Si el slot está libre, agregarlo a la lista
                 if not slot_ocupado:
                     slots_disponibles.append({
                         'hora_inicio': hora_actual.time().strftime('%H:%M:%S'),
                         'hora_fin': hora_siguiente.time().strftime('%H:%M:%S'),
-                        'precio_hora': float(tarifa.precio),  # Precio por hora
+                        'precio_hora': float(tarifa.precio),
                         'tarifa_titulo': tarifa.titulo or f'Tarifa {tarifa.hora_inicio}-{tarifa.hora_fin}'
                     })
             
@@ -347,4 +323,51 @@ class ReservaViewSet(viewsets.ModelViewSet):
             'total_slots': len(slots_disponibles),
             'slots_disponibles': slots_disponibles
         })
-  
+
+    # ========= NUEVA ACCIÓN: CANCELAR RESERVA =========
+    @action(detail=True, methods=['post'], url_path='cancelar')
+    def cancelar(self, request, pk=None):
+        """
+        Cancelar una reserva.
+        POST /api/reservas/{id}/cancelar/
+        """
+        reserva = self.get_object()
+
+        # Ya cancelada
+        if reserva.estado == 'cancelada':
+            return Response({
+                'exito': False,
+                'mensaje': 'La reserva ya se encuentra cancelada.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # No permitir cancelar reservas vencidas
+        if reserva.esta_vencida:
+            return Response({
+                'exito': False,
+                'mensaje': 'No es posible cancelar una reserva que ya ha finalizado.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Cambiar estado y guardar
+        reserva.estado = 'cancelada'
+        reserva.save(update_fields=['estado', 'updated_at'])
+
+        # ===== NOTIFICACIÓN: RESERVA CANCELADA (solo si el modelo existe) =====
+        if Notificacion is not None:
+            Notificacion.objects.create(
+                usuario=reserva.deportista.user,
+                tipo="reserva_cancelada",
+                titulo="Reserva cancelada",
+                mensaje=(
+                    f"Tu reserva para {reserva.cancha.nombre} el "
+                    f"{reserva.fecha} de {reserva.hora_inicio} a {reserva.hora_fin} "
+                    f"ha sido cancelada."
+                ),
+            )
+        # ======================================================================
+
+        serializer = ReservaSerializer(reserva, context={'request': request})
+        return Response({
+            'exito': True,
+            'mensaje': 'Reserva cancelada exitosamente.',
+            'reserva': serializer.data
+        }, status=status.HTTP_200_OK)

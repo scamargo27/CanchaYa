@@ -1,6 +1,7 @@
 // src/CanchasPage.js
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import logo from "./assets/logo-cancha.png";
 
 const CLUBES = [
   {
@@ -36,33 +37,38 @@ const CLUBES = [
 ];
 
 export default function CanchasPage() {
+  const { clubId } = useParams();
+
+  // Si viene un clubId en la ruta, mostramos solo ese club; si no, todos
+  const clubsToShow = React.useMemo(() => {
+    if (!clubId) return CLUBES;
+    const found = CLUBES.find((c) => String(c.id) === String(clubId));
+    return found ? [found] : CLUBES;
+  }, [clubId]);
+
   return (
     <div className="page-root">
       {/* NAVBAR SUPERIOR */}
       <header className="nav-root">
         <div className="nav-inner">
-          {/* Logo */}
+          {/* Logo (no navega) */}
           <div className="nav-logo">
-            <img
-              src="https://cdn-icons-png.flaticon.com/512/3097/3097144.png"
-              alt="logo"
-              className="nav-logo-icon"
-            />
+            <img src={logo} alt="logo" className="nav-logo-icon" />
             <span className="nav-logo-text">CanchaYa</span>
           </div>
 
           {/* Tabs del deportista */}
           <nav className="nav-tabs">
-            <Link to="/buscar" className="nav-tab nav-tab-active">
+            <Link to="/deportista/buscar" className="nav-tab nav-tab-active">
               Buscar
             </Link>
-            <Link to="/reservas" className="nav-tab">
+            <Link to="/deportista/reservas" className="nav-tab">
               Mis Reservas
             </Link>
-            <Link to="/notificaciones" className="nav-tab">
+            <Link to="/deportista/notificaciones" className="nav-tab">
               Notificaciones
             </Link>
-            <Link to="/perfil" className="nav-tab">
+            <Link to="/deportista/perfil" className="nav-tab">
               Perfil
             </Link>
 
@@ -117,7 +123,7 @@ export default function CanchasPage() {
 
           {/* LISTA DE CLUBES */}
           <div className="clubs-grid">
-            {CLUBES.map((club) => (
+            {clubsToShow.map((club) => (
               <article key={club.id} className="club-card">
                 <div className="club-image-wrapper">
                   <img

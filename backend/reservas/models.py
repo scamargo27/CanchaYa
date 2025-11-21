@@ -13,10 +13,10 @@ class Reserva(models.Model):
     Una reserva conecta un deportista con una cancha en una fecha y hora específicas.
     """
     ESTADO_CHOICES = [
-        #('pendiente', 'Pendiente'),       # Para futuras versiones
-        ('confirmada', 'Confirmada'),     # Estado por defecto (automático)
-        #('completada', 'Completada'),     # Para futuras versiones
-        #('cancelada', 'Cancelada'),       # Para futuras versiones
+        ('pendiente', 'Pendiente'),       # para futuras reservas en espera de pago, etc.
+        ('confirmada', 'Confirmada'),     # estado actual por defecto
+        ('completada', 'Completada'),     # reservas ya realizadas
+        ('cancelada', 'Cancelada'),       # reservas canceladas
     ]
     
     cancha = models.ForeignKey(

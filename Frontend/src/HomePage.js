@@ -9,35 +9,34 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* NAVBAR */}
-    <header className="w-full border-b border-gray-200">
-      <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-2">
-          <img
-            src={logo}
-            alt="Logo CanchaYa"
-            className="w-8 h-8"
-          />
-          <span className="font-extrabold text-xl text-blue-700">
-            CanchaYa
-          </span>
+      <header className="w-full border-b border-gray-200">
+        <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-2">
+            <img
+              src={logo}
+              alt="Logo CanchaYa"
+              className="w-8 h-8"
+            />
+            <span className="font-extrabold text-xl text-blue-700">
+              CanchaYa
+            </span>
+          </div>
+
+          {/* 👇 NAV con dos botones */}
+          <nav className="flex items-center gap-6 text-sm text-slate-700">
+            <Link to="/login" className="font-semibold hover:underline">
+              Iniciar Sesión
+            </Link>
+
+            <Link
+              to="/registrarse"
+              className="font-semibold hover:underline text-blue-700"
+            >
+              Registrarse
+            </Link>
+          </nav>
         </div>
-
-        {/* 👇 NAV con dos botones */}
-        <nav className="flex items-center gap-6 text-sm text-slate-700">
-          <Link to="/login" className="font-semibold hover:underline">
-            Iniciar Sesión
-          </Link>
-
-          <Link
-            to="/registrarse"
-            className="font-semibold hover:underline text-blue-700"
-          >
-            Registrarse
-          </Link>
-        </nav>
-      </div>
-    </header>
-
+      </header>
 
       {/* CONTENIDO PRINCIPAL */}
       <main className="flex-1">
@@ -59,7 +58,9 @@ export default function HomePage() {
 
             {/* BOTONES HERO */}
             <div className="flex flex-wrap gap-4">
-              {/* Buscar canchas → vista de búsqueda */}
+
+              {/* ❌ BOTÓN ELIMINADO
+              
               <Link
                 to="/deportista/buscar"
                 className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-black"
@@ -67,6 +68,8 @@ export default function HomePage() {
                 <span>🔍</span>
                 <span>Buscar Canchas</span>
               </Link>
+              
+              */}
 
               {/* Registrar club → registro */}
               <Link
@@ -171,7 +174,7 @@ export default function HomePage() {
 
               {/* 5 */}
               <div className="bg-white rounded-3xl shadow-sm p-6 flex flex-col gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-pink-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-2xl bg-pink-100 flex	items-center justify-center">
                   <span className="text-xl">📱</span>
                 </div>
                 <h3 className="font-semibold text-slate-900">Móvil Friendly</h3>
@@ -223,7 +226,7 @@ export default function HomePage() {
               </div>
 
               <div className="flex flex-col items-center gap-3">
-                <div className="w-14 h-14 rounded-full bg-green-600 text-white flex items-center justify-center text-xl font-bold">
+                <div className="w-14 h-14 rounded-full bg-green-600 text-white flex items-center justify	center text-xl font-bold">
                   2
                 </div>
                 <h3 className="font-semibold text-slate-900">

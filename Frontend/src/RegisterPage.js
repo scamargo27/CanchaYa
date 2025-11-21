@@ -1,688 +1,1112 @@
-// src/ReservaClubPage.js
-import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+// src/RegisterPage.js
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import api from "./api/apiClient";
 import logo from "./assets/logo-cancha.png";
 
-// 👉 Imágenes locales por deporte (igual que en BuscarClubesPage)
-import imgFutbol from "./assets/canchas/futbol.png";
-import imgTenis from "./assets/canchas/tenis.png";
-import imgBasquet from "./assets/canchas/basquet.png";
-import imgVoley from "./assets/canchas/voley.png";
-import imgPadel from "./assets/canchas/padel.png";
-import imgFutsal from "./assets/canchas/futsal.png";
-import imgDefault from "./assets/canchas/default.png";
-
-// Horas que se mostrarán en la parte de horarios disponibles (puedes ajustar)
-const HORAS_BASE = [
-  "08:00",
-  "09:00",
-  "10:00",
-  "11:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-  "18:00",
-  "19:00",
-  "20:00",
-  "21:00",
+const DIAS_SEMANA = [
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+  "Domingo",
 ];
 
-// Mapa deporte → imagen
-const SPORT_IMAGES = {
-  futbol: imgFutbol,
-  futbol7: imgFutbol,
-  futbol11: imgFutbol,
-  futbolito: imgFutbol,
-  futsal: imgFutsal,
-  microfutbol: imgFutsal,
-  tenis: imgTenis,
-  padel: imgPadel,
-  basquet: imgBasquet,
-  basquetbol: imgBasquet,
-  baloncesto: imgBasquet,
-  voley: imgVoley,
-  voleibol: imgVoley,
-};
-
-const normalize = (str = "") =>
-  str
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-
-// Devuelve imagen según deporte seleccionado o fallback
-function getImageForSport(deporteNombre, club, canchas) {
-  if (deporteNombre) {
-    const key = normalize(deporteNombre).split(" ")[0]; // "Fútbol 5" → "futbol"
-    if (SPORT_IMAGES[key]) return SPORT_IMAGES[key];
+// Utilidad para calcular edad a partir de YYYY-MM-DD
+function calcularEdad(fechaStr) {
+  if (!fechaStr) return null;
+  const hoy = new Date();
+  const [year, month, day] = fechaStr.split("-").map(Number);
+  const nacimiento = new Date(year, month - 1, day);
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const m = hoy.getMonth() - nacimiento.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nacimiento.getDate())) {
+    edad--;
   }
-
-  if (club?.imagen_url) return club.imagen_url;
-  if (canchas?.length && canchas[0].imagen_url) return canchas[0].imagen_url;
-
-  return "https://images.unsplash.com/photo-1547347298-4074fc3086f0?auto=format&fit=crop&w=1200&q=80";
+  return edad;
 }
 
-/**
- * Dado el JSON de:
- *   POST /api/reservas/disponibilidad-cancha/{cancha_id}/
- * intenta devolver el slot que empieza a la hora HH:MM seleccionada.
- */
-function obtenerSlotParaHora(data, horaHHMM) {
-  if (!data || !Array.isArray(data.slots_disponibles)) {
-    console.warn(
-      "[ReservaClubPage] data.slots_disponibles no es un array",
-      data
-    );
-    return null;
-  }
-
-  const objetivo = `${horaHHMM}:00`; // "18:00" -> "18:00:00"
-  const slot = data.slots_disponibles.find(
-    (slot) => slot.hora_inicio === objetivo
-  );
-
-  console.log(
-    "[ReservaClubPage] buscando hora",
-    objetivo,
-    "en slots_disponibles → slot encontrado:",
-    slot
-  );
-
-  return slot || null;
-}
-
-export default function ReservaClubPage() {
-  const { clubId } = useParams();
+export default function RegisterPage() {
   const navigate = useNavigate();
 
-  const [club, setClub] = useState(null);
-  const [canchas, setCanchas] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("deportista"); // "deportista" | "club"
 
-  // fecha mínima (hoy) en formato YYYY-MM-DD
-  const hoyStr = new Date().toISOString().slice(0, 10);
+  // Datos comunes de apoyo
+  const [departamentos, setDepartamentos] = useState([]);
+  const [ciudades, setCiudades] = useState([]);
+  const [deportes, setDeportes] = useState([]);
 
-  // selección del flujo
-  const [deporteSeleccionado, setDeporteSeleccionado] = useState(null);
-  const [fechaSeleccionada, setFechaSeleccionada] = useState(hoyStr);
-  const [horaSeleccionada, setHoraSeleccionada] = useState(null);
+  const [departamentoId, setDepartamentoId] = useState("");
 
-  // precio del slot seleccionado (por hora)
-  const [precioHoraSeleccionado, setPrecioHoraSeleccionado] = useState(null);
+  // Estado para feedback
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
-  // estado para mostrar disponibilidad al elegir hora
-  // null | "checking" | "disponible" | "no-disponible" | "error"
-  const [estadoDisponibilidad, setEstadoDisponibilidad] = useState(null);
+  // ---------- FORMULARIO DEPORTISTA ----------
+  const [depForm, setDepForm] = useState({
+    nombre: "",
+    apellido: "",
+    documento: "",
+    email: "",
+    telefono: "",
+    fechaNacimiento: "",
+    genero: "",
+    ciudadId: "",
+    deportesSeleccionados: [], // ids
+    password: "",
+    passwordConfirm: "",
+    aceptaTerminos: false,
+  });
 
-  // 1️⃣ Cargar info del club y sus canchas
+  // ---------- FORMULARIO CLUB (ADMINISTRADOR) ----------
+  const [clubForm, setClubForm] = useState({
+    nombreClub: "",
+    nit: "",
+    direccion: "",
+    ciudadId: "",
+    email: "",
+    telefono1: "",
+    telefono2: "",
+    descripcion: "",
+    horaApertura: "",
+    horaCierre: "",
+    diasOperacion: [], // ahora es array de días
+    deportesDisponibles: [], // ids
+    password: "",
+    passwordConfirm: "",
+    aceptaTerminos: false,
+  });
+
+  // ================== CARGA DE DATOS (DEPARTAMENTOS, CIUDADES, DEPORTES) ==================
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true);
+        const [depsRes, deportesRes] = await Promise.all([
+          api.get("/api/core/departamentos/"),
+          api.get("/api/core/deportes/"),
+        ]);
 
-        const resClub = await api.get(`/api/accounts/clubes/${clubId}/`);
-        setClub(resClub.data);
+        const rawDeps = depsRes.data;
+        const rawDeportes = deportesRes.data;
 
-        const resCanchas = await api.get("/api/canchas/", {
-          params: { club: clubId },
-        });
+        const listaDepartamentos = Array.isArray(rawDeps)
+          ? rawDeps
+          : Array.isArray(rawDeps?.results)
+          ? rawDeps.results
+          : Array.isArray(rawDeps?.departamentos)
+          ? rawDeps.departamentos
+          : [];
 
-        const data = resCanchas.data;
-        const listaCanchas = Array.isArray(data)
-          ? data
-          : data.canchas || data.results || [];
+        const listaDeportes = Array.isArray(rawDeportes)
+          ? rawDeportes
+          : Array.isArray(rawDeportes?.results)
+          ? rawDeportes.results
+          : Array.isArray(rawDeportes?.deportes)
+          ? rawDeportes.deportes
+          : [];
 
-        setCanchas(listaCanchas);
-
-        if (listaCanchas.length) {
-          setDeporteSeleccionado(listaCanchas[0].deporte_nombre || null);
-        }
+        setDepartamentos(listaDepartamentos);
+        setDeportes(listaDeportes);
       } catch (error) {
-        console.error("Error cargando club/canchas", error);
-      } finally {
-        setLoading(false);
+        console.error("Error cargando datos básicos (core)", error);
+        setDepartamentos([]);
+        setDeportes([]);
       }
     };
 
     fetchData();
-  }, [clubId]);
+  }, []);
 
-  // 2️⃣ Agrupar canchas por deporte para la tarjeta de "Seleccionar Deporte"
-  const resumenDeportes = useMemo(() => {
-    const map = new Map();
-    for (const c of canchas) {
-      const dep = c.deporte_nombre || "Otro";
-      if (!map.has(dep)) {
-        map.set(dep, {
-          nombre: dep,
-          cantidad: 0,
-          precioMin: null,
-        });
-      }
-      const item = map.get(dep);
-      item.cantidad += 1;
-
-      const posiblePrecio =
-        c.precio_desde || c.tarifa_desde || c.precio_hora || c.precio || null;
-
-      if (posiblePrecio != null) {
-        const num = Number(posiblePrecio);
-        if (!Number.isNaN(num)) {
-          if (item.precioMin == null || num < item.precioMin) {
-            item.precioMin = num;
-          }
-        }
-      }
-    }
-    return Array.from(map.values());
-  }, [canchas]);
-
-  // 3️⃣ Canchas filtradas por el deporte seleccionado
-  const canchasFiltradas = useMemo(() => {
-    if (!deporteSeleccionado) return [];
-    return canchas.filter(
-      (c) => normalize(c.deporte_nombre) === normalize(deporteSeleccionado)
-    );
-  }, [canchas, deporteSeleccionado]);
-
-  // 4️⃣ Imagen principal según deporte
-  const imagenPrincipal = useMemo(
-    () => getImageForSport(deporteSeleccionado, club, canchas),
-    [deporteSeleccionado, club, canchas]
-  );
-
-  // 5️⃣ Verificar disponibilidad al seleccionar hora (usando disponibilidad-cancha)
-  const handleSeleccionHora = async (hora) => {
-    setHoraSeleccionada(hora);
-    setEstadoDisponibilidad(null);
-    setPrecioHoraSeleccionado(null);
-
-    // No permitir fechas pasadas
-    if (fechaSeleccionada < hoyStr) {
-      setEstadoDisponibilidad("no-disponible");
-      return;
-    }
-
-    if (!deporteSeleccionado) return;
-
-    const canchaBase = canchasFiltradas[0];
-    if (!canchaBase) return;
-
-    setEstadoDisponibilidad("checking");
-    try {
-      const res = await api.post(
-        `/api/reservas/disponibilidad-cancha/${canchaBase.id}/`,
-        {
-          fecha: fechaSeleccionada,
-        }
-      );
-
-      console.log(
-        "[ReservaClubPage] respuesta cruda de disponibilidad (hora):",
-        res.data
-      );
-
-      const slot = obtenerSlotParaHora(res.data, hora);
-
-      if (slot) {
-        setEstadoDisponibilidad("disponible");
-        setPrecioHoraSeleccionado(slot.precio_hora);
-      } else {
-        setEstadoDisponibilidad("no-disponible");
-        setPrecioHoraSeleccionado(null);
-      }
-    } catch (error) {
-      console.error("Error verificando disponibilidad de hora", error);
-      setEstadoDisponibilidad("error");
-      setPrecioHoraSeleccionado(null);
-    }
-  };
-
-  // 6️⃣ Seleccionar cancha (valida disponibilidad específica y redirige)
-  const handleSeleccionarCancha = async (cancha) => {
-    if (!deporteSeleccionado || !fechaSeleccionada || !horaSeleccionada) {
-      alert("Primero selecciona deporte, fecha y hora.");
-      return;
-    }
-
-    if (fechaSeleccionada < hoyStr) {
-      setEstadoDisponibilidad("no-disponible");
-      alert("No puedes reservar en una fecha anterior a hoy.");
-      return;
-    }
-
-    try {
-      const res = await api.post(
-        `/api/reservas/disponibilidad-cancha/${cancha.id}/`,
-        {
-          fecha: fechaSeleccionada,
-        }
-      );
-
-      console.log(
-        "[ReservaClubPage] respuesta cruda de disponibilidad (cancha seleccionada):",
-        res.data
-      );
-
-      const slot = obtenerSlotParaHora(res.data, horaSeleccionada);
-
-      if (!slot) {
-        setEstadoDisponibilidad("no-disponible");
-        setPrecioHoraSeleccionado(null);
-        alert(
-          "Esta cancha no está disponible en la fecha y hora seleccionadas. Por favor elige otro horario."
-        );
+  // Cargar ciudades cuando cambie departamento
+  useEffect(() => {
+    const loadCiudades = async () => {
+      if (!departamentoId) {
+        setCiudades([]);
         return;
       }
+      try {
+        const res = await api.get(
+          `/api/core/ciudades/por-departamento/${departamentoId}/`
+        );
+        const raw = res.data;
+        const listaCiudades = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+          ? raw.results
+          : Array.isArray(raw?.ciudades)
+          ? raw.ciudades
+          : [];
+        setCiudades(listaCiudades);
+      } catch (error) {
+        console.error("Error cargando ciudades", error);
+        setCiudades([]);
+      }
+    };
+    loadCiudades();
+  }, [departamentoId]);
 
-      setEstadoDisponibilidad("disponible");
-      setPrecioHoraSeleccionado(slot.precio_hora);
+  // ================== HANDLERS COMUNES ==================
+  const handleChangeDepartamento = (e) => {
+    setDepartamentoId(e.target.value);
+    // Reseteamos ciudad en ambos formularios
+    setDepForm((prev) => ({ ...prev, ciudadId: "" }));
+    setClubForm((prev) => ({ ...prev, ciudadId: "" }));
+  };
 
-      // Enviamos también el precio y la info de la tarifa a la siguiente página
-      navigate("/confirmar-reserva", {
-        state: {
-          club,
-          cancha,
-          deporte: deporteSeleccionado,
-          fecha: fechaSeleccionada,
-          hora: horaSeleccionada,
-          precioHora: slot.precio_hora,
-          tarifaTitulo: slot.tarifa_titulo,
-        },
-      });
-    } catch (error) {
-      console.error("Error verificando disponibilidad de la cancha", error);
-      alert(
-        "Ocurrió un error al consultar la disponibilidad. Intenta nuevamente más tarde."
+  const handleCheckboxDeporteDep = (id) => {
+    setDepForm((prev) => {
+      const already = prev.deportesSeleccionados.includes(id);
+      return {
+        ...prev,
+        deportesSeleccionados: already
+          ? prev.deportesSeleccionados.filter((x) => x !== id)
+          : [...prev.deportesSeleccionados, id],
+      };
+    });
+  };
+
+  const handleCheckboxDeporteClub = (id) => {
+    setClubForm((prev) => {
+      const already = prev.deportesDisponibles.includes(id);
+      return {
+        ...prev,
+        deportesDisponibles: already
+          ? prev.deportesDisponibles.filter((x) => x !== id)
+          : [...prev.deportesDisponibles, id],
+      };
+    });
+  };
+
+  const toggleDiaOperacion = (dia) => {
+    setClubForm((prev) => {
+      const existe = prev.diasOperacion.includes(dia);
+      return {
+        ...prev,
+        diasOperacion: existe
+          ? prev.diasOperacion.filter((d) => d !== dia)
+          : [...prev.diasOperacion, dia],
+      };
+    });
+  };
+
+  // ================== SUBMIT DEPORTISTA ==================
+  const handleSubmitDeportista = async (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    // Validaciones mínimas
+    if (!depForm.aceptaTerminos) {
+      setErrorMsg("Debes aceptar los términos y condiciones.");
+      return;
+    }
+
+    if (depForm.password !== depForm.passwordConfirm) {
+      setErrorMsg("Las contraseñas no coinciden.");
+      return;
+    }
+
+    if (!depForm.nombre.trim() || !depForm.apellido.trim()) {
+      setErrorMsg("Ingresa tu nombre y apellido.");
+      return;
+    }
+
+    // Validar edad mínima 14 años
+    const edad = calcularEdad(depForm.fechaNacimiento);
+    if (edad === null) {
+      setErrorMsg("Ingresa tu fecha de nacimiento.");
+      return;
+    }
+    if (edad < 14) {
+      setErrorMsg("Debes tener al menos 14 años para registrarte.");
+      return;
+    }
+
+    // Validar teléfono colombiano (10 dígitos sin +57)
+    const telLimpio = depForm.telefono.replace(/\D/g, "");
+    if (telLimpio.length !== 10) {
+      setErrorMsg(
+        "Ingresa un número de celular colombiano de 10 dígitos (sin incluir el +57)."
       );
+      return;
+    }
+
+    if (depForm.deportesSeleccionados.length === 0) {
+      setErrorMsg("Selecciona al menos un deporte de interés.");
+      return;
+    }
+
+    const deporteFavorito = depForm.deportesSeleccionados[0]; // el primero seleccionado
+
+    const payload = {
+      email: depForm.email,
+      password: depForm.password,
+      password_confirm: depForm.passwordConfirm,
+      nombre: depForm.nombre.trim(),
+      apellido: depForm.apellido.trim(),
+      documento_identidad: depForm.documento,
+      telefono: telLimpio,
+      deporte_favorito: deporteFavorito,
+      // Opcionales: podrías enviar fecha_nacimiento, genero, ciudad si el backend los soporta
+    };
+
+    try {
+      setLoading(true);
+      await api.post("/api/accounts/deportistas/", payload);
+      setSuccessMsg(
+        "Registro de deportista exitoso. Ahora puedes iniciar sesión."
+      );
+      setTimeout(() => navigate("/login"), 1200);
+    } catch (error) {
+      console.error("Error registrando deportista", error);
+      const data = error.response?.data;
+      if (data) {
+        const detail =
+          data.detail ||
+          (Array.isArray(Object.values(data))
+            ? Object.values(data).flat().join(" ")
+            : "Ocurrió un error al registrar el deportista.");
+        setErrorMsg(detail);
+      } else {
+        setErrorMsg("No se pudo completar el registro. Inténtalo nuevamente.");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="text-sm text-slate-500">Cargando información...</p>
-      </div>
-    );
-  }
+  // ================== SUBMIT CLUB ==================
+  const handleSubmitClub = async (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+    setSuccessMsg("");
 
-  if (!club) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="text-sm text-slate-500">
-          No se encontró la información del club.
-        </p>
-      </div>
-    );
-  }
+    if (!clubForm.aceptaTerminos) {
+      setErrorMsg("Debes aceptar los términos y condiciones.");
+      return;
+    }
 
+    if (clubForm.password !== clubForm.passwordConfirm) {
+      setErrorMsg("Las contraseñas no coinciden.");
+      return;
+    }
+
+    if (!departamentoId || !clubForm.ciudadId) {
+      setErrorMsg("Selecciona departamento y ciudad del club.");
+      return;
+    }
+
+    if (!clubForm.diasOperacion.length) {
+      setErrorMsg("Selecciona al menos un día de operación del club.");
+      return;
+    }
+
+    // Validar teléfonos (opcional pero recomendable)
+    const tel1Limpio = clubForm.telefono1.replace(/\D/g, "");
+    if (tel1Limpio.length !== 10) {
+      setErrorMsg(
+        "Ingresa un teléfono principal válido de 10 dígitos (sin incluir el +57)."
+      );
+      return;
+    }
+    const tel2Limpio = clubForm.telefono2
+      ? clubForm.telefono2.replace(/\D/g, "")
+      : "";
+
+    const diasTexto = clubForm.diasOperacion.join(", ");
+    const disponibilidad = diasTexto
+      ? `${diasTexto} - ${clubForm.horaApertura || "--:--"} a ${
+          clubForm.horaCierre || "--:--"
+        }`
+      : "";
+
+    const deportesNombres = (Array.isArray(deportes) ? deportes : [])
+      .filter((d) => clubForm.deportesDisponibles.includes(d.id))
+      .map((d) => d.nombre)
+      .join(", ");
+
+    const infoExtra = [
+      clubForm.descripcion?.trim(),
+      deportesNombres ? `Deportes: ${deportesNombres}` : "",
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    const payload = {
+      email: clubForm.email,
+      password: clubForm.password,
+      password_confirm: clubForm.passwordConfirm,
+      nombre: clubForm.nombreClub,
+      nit: clubForm.nit,
+      direccion: clubForm.direccion,
+      departamento: Number(departamentoId),
+      ciudad: Number(clubForm.ciudadId),
+      telefono_1: tel1Limpio,
+      telefono_2: tel2Limpio || undefined,
+      disponibilidad: disponibilidad || undefined,
+      informacion: infoExtra || undefined,
+    };
+
+    try {
+      setLoading(true);
+      await api.post("/api/accounts/clubes/", payload);
+      setSuccessMsg(
+        "Registro de administrador/club exitoso. Ahora puedes iniciar sesión."
+      );
+      setTimeout(() => navigate("/login"), 1200);
+    } catch (error) {
+      console.error("Error registrando club", error);
+      const data = error.response?.data;
+      if (data) {
+        const detail =
+          data.detail ||
+          (Array.isArray(Object.values(data))
+            ? Object.values(data).flat().join(" ")
+            : "Ocurrió un error al registrar el club.");
+        setErrorMsg(detail);
+      } else {
+        setErrorMsg("No se pudo completar el registro. Inténtalo nuevamente.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ================== RENDER ==================
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* NAVBAR PERFIL DEPORTISTA */}
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-8 py-4">
-          <div className="flex items-center gap-2">
-            <img src={logo} alt="CanchaYa logo" className="w-7 h-7" />
-            <span className="font-bold text-xl text-blue-700">CanchaYa</span>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 via-emerald-50 to-slate-50 flex flex-col">
+      {/* NAVBAR SIMPLE */}
+      <header className="border-b border-slate-200 bg-white/70 backdrop-blur">
+        <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
+          <Link to="/" className="flex items-center gap-2">
+            <img src={logo} alt="CanchaYa logo" className="w-6 h-6" />
+            <span className="font-bold text-blue-500 text-lg">CanchaYa</span>
+          </Link>
 
-          <nav className="flex items-center gap-6 text-sm">
-            <Link
-              to="/deportista/buscar"
-              className="px-4 py-2 rounded-full bg-slate-900 text-white font-semibold"
-            >
-              Buscar
-            </Link>
-            <Link to="/deportista/reservas" className="text-slate-700">
-              Mis Reservas
-            </Link>
-            <Link to="/deportista/notificaciones" className="text-slate-700">
-              Notificaciones
-            </Link>
-            <Link to="/deportista/perfil" className="text-slate-700">
-              Perfil
-            </Link>
-
-            <Link
-              to="/login"
-              className="ml-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 bg-white hover:bg-slate-50"
-            >
-              <span>↪</span>
-              <span>Cerrar Sesión</span>
-            </Link>
-          </nav>
+          <Link
+            to="/"
+            className="text-sm text-slate-600 hover:text-slate-900 flex items-center gap-1"
+          >
+            <span>←</span>
+            <span>Volver al inicio</span>
+          </Link>
         </div>
       </header>
 
-      {/* CONTENIDO */}
-      <main className="flex-1">
-        <section className="max-w-6xl mx-auto px-8 py-8 space-y-6">
-          {/* Volver a la búsqueda */}
-          <button
-            type="button"
-            onClick={() => window.history.back()}
-            className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-2"
-          >
-            <span>←</span>
-            <span>Volver a la búsqueda</span>
-          </button>
-
-          {/* HERO + INFO CLUB */}
-          <div className="grid grid-cols-[2fr,1fr] gap-6">
-            <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-200">
-              <div className="h-72 bg-slate-200">
-                <img
-                  src={imagenPrincipal}
-                  alt={club.nombre}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-
-            <aside className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col gap-3">
-              <h3 className="font-semibold text-slate-900 mb-2">
-                Información del Club
-              </h3>
-
-              <h2 className="font-semibold text-slate-900">{club.nombre}</h2>
-
-              <div className="flex items-start gap-2 text-sm text-slate-600">
-                <span>📍</span>
-                <span>{club.direccion || club.direccion_completa}</span>
-              </div>
-
-              {club.telefono_1 && (
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <span>📞</span>
-                  <span>{club.telefono_1}</span>
-                </div>
-              )}
-
-              {club.email && (
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <span>✉️</span>
-                  <span>{club.email}</span>
-                </div>
-              )}
-
-              <p className="mt-2 text-sm text-slate-600">
-                Club especializado con canchas profesionales y entrenadores
-                certificados. Equipamiento de última generación.
-              </p>
-            </aside>
+      <main className="flex-1 flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-5xl bg-white shadow-sm border border-slate-200 rounded-3xl p-8 md:p-10">
+          {/* Título */}
+          <div className="text-center mb-6">
+            <h1 className="text-xl font-semibold text-slate-900">
+              Crear Cuenta
+            </h1>
+            <p className="text-sm text-slate-500">
+              Únete a CanchaYa y comienza a disfrutar del deporte
+            </p>
           </div>
 
-          {/* CUERPO PRINCIPAL: pasos + resumen selección */}
-          <div className="grid grid-cols-[2fr,1fr] gap-6">
-            {/* Pasos de reserva */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
-              <h2 className="font-semibold text-slate-900 mb-1">
-                Reservar en {club.nombre}
+          {/* Tabs Deportista / Administrador */}
+          <div className="flex mb-8 rounded-full bg-slate-100 overflow-hidden text-sm font-medium">
+            <button
+              type="button"
+              onClick={() => setActiveTab("deportista")}
+              className={
+                "flex-1 py-2 flex items-center justify-center gap-2 transition " +
+                (activeTab === "deportista"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500")
+              }
+            >
+              <span>👤</span>
+              <span>Deportista</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("club")}
+              className={
+                "flex-1 py-2 flex items-center justify-center gap-2 transition " +
+                (activeTab === "club"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500")
+              }
+            >
+              <span>🏟️</span>
+              <span>Administrador</span>
+            </button>
+          </div>
+
+          {/* Mensajes globales */}
+          {(errorMsg || successMsg) && (
+            <div className="mb-6">
+              {errorMsg && (
+                <div className="mb-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
+                  {errorMsg}
+                </div>
+              )}
+              {successMsg && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs text-emerald-700">
+                  {successMsg}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Formularios */}
+          {activeTab === "deportista" ? (
+            <form onSubmit={handleSubmitDeportista} className="space-y-6">
+              <h2 className="text-base font-semibold text-slate-900 text-center">
+                Registro para Deportistas
               </h2>
-              <p className="text-sm text-slate-500 mb-4">
-                Sigue estos pasos para completar tu reserva
+              <p className="text-xs text-slate-500 text-center mb-2">
+                Crea tu cuenta para buscar y reservar canchas deportivas
               </p>
 
-              {/* 1. Seleccionar deporte */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs">
-                    1
-                  </span>
-                  <span>Seleccionar Deporte</span>
+              {/* Fila 1: nombre + apellido */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Nombre *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ej: Juan"
+                    value={depForm.nombre}
+                    onChange={(e) =>
+                      setDepForm((prev) => ({
+                        ...prev,
+                        nombre: e.target.value,
+                      }))
+                    }
+                    required
+                  />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  {resumenDeportes.map((dep) => {
-                    const activo =
-                      normalize(dep.nombre) === normalize(deporteSeleccionado);
-                    return (
-                      <button
-                        key={dep.nombre}
-                        type="button"
-                        onClick={() => {
-                          setDeporteSeleccionado(dep.nombre);
-                          setHoraSeleccionada(null);
-                          setEstadoDisponibilidad(null);
-                          setPrecioHoraSeleccionado(null);
-                        }}
-                        className={
-                          "rounded-2xl border px-6 py-4 text-left text-sm transition " +
-                          (activo
-                            ? "border-blue-600 bg-blue-50"
-                            : "border-slate-200 bg-slate-50 hover:border-blue-300")
-                        }
-                      >
-                        <p className="font-semibold text-slate-900">
-                          {dep.nombre}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {dep.cantidad} canchas
-                        </p>
-                        <p className="mt-2 text-xs text-slate-700">
-                          {dep.precioMin != null
-                            ? `Desde S/ ${dep.precioMin}`
-                            : "Consultar precio"}
-                        </p>
-                      </button>
-                    );
-                  })}
-
-                  {resumenDeportes.length === 0 && (
-                    <p className="text-sm text-slate-500 col-span-2">
-                      Este club aún no tiene canchas registradas.
-                    </p>
-                  )}
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Apellido *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ej: Pérez"
+                    value={depForm.apellido}
+                    onChange={(e) =>
+                      setDepForm((prev) => ({
+                        ...prev,
+                        apellido: e.target.value,
+                      }))
+                    }
+                    required
+                  />
                 </div>
               </div>
 
-              {/* 2. Seleccionar fecha y hora */}
-              <div className="space-y-3 pt-4 border-t border-slate-100">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs">
-                    2
-                  </span>
-                  <span>Seleccionar Fecha y Hora</span>
+              {/* Fila 2: documento */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Cédula de ciudadanía *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ej: 1234567890"
+                    value={depForm.documento}
+                    onChange={(e) =>
+                      setDepForm((prev) => ({
+                        ...prev,
+                        documento: e.target.value,
+                      }))
+                    }
+                    required
+                  />
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
-                  {/* Fecha */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-slate-700">
-                      Seleccionar Fecha
-                    </p>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Teléfono (sin +57) *
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-2 rounded-xl bg-slate-100 text-xs text-slate-600 border border-slate-200">
+                      +57
+                    </span>
                     <input
-                      type="date"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value={fechaSeleccionada}
-                      min={hoyStr}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value < hoyStr) {
-                          setFechaSeleccionada(hoyStr);
-                          setEstadoDisponibilidad("no-disponible");
-                          setHoraSeleccionada(null);
-                          setPrecioHoraSeleccionado(null);
-                          return;
-                        }
-                        setFechaSeleccionada(value);
-                        setEstadoDisponibilidad(null);
-                        setHoraSeleccionada(null);
-                        setPrecioHoraSeleccionado(null);
-                      }}
+                      type="tel"
+                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="3001234567"
+                      value={depForm.telefono}
+                      onChange={(e) =>
+                        setDepForm((prev) => ({
+                          ...prev,
+                          telefono: e.target.value,
+                        }))
+                      }
+                      required
                     />
                   </div>
+                </div>
+              </div>
 
-                  {/* Horarios disponibles */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-slate-700">
-                      Horarios Disponibles
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {HORAS_BASE.map((hora) => {
-                        const activo = hora === horaSeleccionada;
-                        return (
-                          <button
-                            key={hora}
-                            type="button"
-                            onClick={() => handleSeleccionHora(hora)}
-                            className={
-                              "h-9 rounded-xl border text-xs font-medium transition " +
-                              (activo
-                                ? "bg-slate-900 text-white border-slate-900"
-                                : "bg-white text-slate-800 border-slate-200 hover:border-slate-400")
-                            }
-                          >
-                            {hora}
-                          </button>
-                        );
-                      })}
-                    </div>
+              {/* Fila 3: email + fecha nacimiento */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="tu-email@ejemplo.com"
+                    value={depForm.email}
+                    onChange={(e) =>
+                      setDepForm((prev) => ({ ...prev, email: e.target.value }))
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Fecha de nacimiento *
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={depForm.fechaNacimiento}
+                    onChange={(e) =>
+                      setDepForm((prev) => ({
+                        ...prev,
+                        fechaNacimiento: e.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </div>
+              </div>
 
-                    {horaSeleccionada && (
-                      <p className="text-xs mt-2">
-                        {estadoDisponibilidad === "checking" && (
-                          <span className="text-slate-500">
-                            Verificando disponibilidad para {fechaSeleccionada} a
-                            las {horaSeleccionada}...
-                          </span>
-                        )}
-                        {estadoDisponibilidad === "disponible" && (
-                          <span className="text-emerald-600 font-semibold">
-                            Hay canchas disponibles para esa hora. 🟢
-                          </span>
-                        )}
-                        {estadoDisponibilidad === "no-disponible" && (
-                          <span className="text-red-600 font-semibold">
-                            No hay canchas disponibles para esa fecha y hora. 🔴
-                          </span>
-                        )}
-                        {estadoDisponibilidad === "error" && (
-                          <span className="text-amber-600">
-                            Ocurrió un error al consultar la disponibilidad.
-                            Intenta de nuevo más tarde.
-                          </span>
-                        )}
-                      </p>
-                    )}
+              {/* Fila 4: género */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Género
+                  </label>
+                  <select
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={depForm.genero}
+                    onChange={(e) =>
+                      setDepForm((prev) => ({
+                        ...prev,
+                        genero: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">Seleccionar</option>
+                    <option value="M">Masculino</option>
+                    <option value="F">Femenino</option>
+                    <option value="O">Otro / Prefiero no decir</option>
+                  </select>
+                </div>
+
+                {/* Departamento + ciudad */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Departamento / Ciudad
+                  </label>
+                  <div className="grid grid-cols-[1.2fr,1.3fr] gap-2">
+                    <select
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={departamentoId}
+                      onChange={handleChangeDepartamento}
+                    >
+                      <option value="">Departamento</option>
+                      {(Array.isArray(departamentos) ? departamentos : []).map(
+                        (d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.nombre}
+                          </option>
+                        )
+                      )}
+                    </select>
+                    <select
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={depForm.ciudadId}
+                      onChange={(e) =>
+                        setDepForm((prev) => ({
+                          ...prev,
+                          ciudadId: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Ciudad</option>
+                      {(Array.isArray(ciudades) ? ciudades : []).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
 
-              {/* 3. Seleccionar cancha */}
-              <div className="space-y-3 pt-4 border-t border-slate-100">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs">
-                    3
-                  </span>
-                  <span>Seleccionar Cancha</span>
-                </div>
-
-                <p className="text-xs text-slate-500 mb-2">
-                  {deporteSeleccionado && horaSeleccionada
-                    ? `Canchas de ${deporteSeleccionado} disponibles para ${fechaSeleccionada} a las ${horaSeleccionada}`
-                    : "Selecciona primero deporte, fecha y hora para ver canchas disponibles."}
-                </p>
-
-                <div className="space-y-3">
-                  {canchasFiltradas.length === 0 && (
-                    <p className="text-sm text-slate-500">
-                      No hay canchas registradas para este deporte.
-                    </p>
-                  )}
-
-                  {canchasFiltradas.map((cancha) => (
-                    <div
-                      key={cancha.id}
-                      className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm"
+              {/* Deportes de interés */}
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-2">
+                  Deportes de interés
+                </label>
+                <div className="grid md:grid-cols-3 gap-2 text-xs">
+                  {(Array.isArray(deportes) ? deportes : []).map((dep) => (
+                    <label
+                      key={dep.id}
+                      className="flex items-center gap-2 text-slate-700"
                     >
-                      <div>
-                        <p className="font-semibold text-slate-900">
-                          {cancha.nombre || `Cancha ${cancha.id}`}
-                        </p>
-                        <p className="text-xs text-slate-600">
-                          {cancha.deporte_nombre} •{" "}
-                          {cancha.capacidad_jugadores
-                            ? `${cancha.capacidad_jugadores} jugadores`
-                            : "Capacidad estándar"}
-                        </p>
-                        <p className="mt-1 text-xs text-emerald-700 font-semibold">
-                          {estadoDisponibilidad === "disponible"
-                            ? "Disponible"
-                            : "Sujeto a disponibilidad"}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-slate-900">
-                          {precioHoraSeleccionado != null
-                            ? `S/ ${precioHoraSeleccionado}`
-                            : cancha.precio_desde ||
-                              cancha.tarifa_desde ||
-                              cancha.precio_hora ||
-                              cancha.precio
-                            ? `S/ ${
-                                cancha.precio_desde ||
-                                cancha.tarifa_desde ||
-                                cancha.precio_hora ||
-                                cancha.precio
-                              }`
-                            : "Consultar precio"}
-                        </p>
-                        <p className="text-[11px] text-slate-500">por hora</p>
-                        <button
-                          type="button"
-                          onClick={() => handleSeleccionarCancha(cancha)}
-                          className="mt-2 inline-flex items-center justify-center px-4 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-black"
-                        >
-                          Seleccionar
-                        </button>
-                      </div>
-                    </div>
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300"
+                        checked={depForm.deportesSeleccionados.includes(dep.id)}
+                        onChange={() => handleCheckboxDeporteDep(dep.id)}
+                      />
+                      <span>{dep.nombre}</span>
+                    </label>
                   ))}
                 </div>
               </div>
-            </div>
 
-            {/* Resumen de selección */}
-            <aside className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
-              <h3 className="font-semibold text-slate-900">
-                Resumen de Selección
-              </h3>
-
-              <div className="text-sm space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Deporte:</span>
-                  <span className="font-medium text-slate-900">
-                    {deporteSeleccionado || "-"}
-                  </span>
+              {/* Contraseña */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Contraseña *
+                  </label>
+                  <input
+                    type="password"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={depForm.password}
+                    onChange={(e) =>
+                      setDepForm((prev) => ({
+                        ...prev,
+                        password: e.target.value,
+                      }))
+                    }
+                    required
+                  />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Fecha:</span>
-                  <span className="font-medium text-slate-900">
-                    {fechaSeleccionada || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Hora:</span>
-                  <span className="font-medium text-slate-900">
-                    {horaSeleccionada || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Precio estimado:</span>
-                  <span className="font-medium text-slate-900">
-                    {precioHoraSeleccionado != null
-                      ? `S/ ${precioHoraSeleccionado}`
-                      : "-"}
-                  </span>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Confirmar contraseña *
+                  </label>
+                  <input
+                    type="password"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={depForm.passwordConfirm}
+                    onChange={(e) =>
+                      setDepForm((prev) => ({
+                        ...prev,
+                        passwordConfirm: e.target.value,
+                      }))
+                    }
+                    required
+                  />
                 </div>
               </div>
-            </aside>
-          </div>
-        </section>
+
+              {/* Términos */}
+              <div className="flex items-start gap-2 text-xs text-slate-700">
+                <input
+                  type="checkbox"
+                  className="mt-1 rounded border-slate-300"
+                  checked={depForm.aceptaTerminos}
+                  onChange={(e) =>
+                    setDepForm((prev) => ({
+                      ...prev,
+                      aceptaTerminos: e.target.checked,
+                    }))
+                  }
+                  required
+                />
+                <span>
+                  Acepto los términos y condiciones y las políticas de
+                  privacidad.
+                </span>
+              </div>
+
+              {/* Botón */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 inline-flex items-center justify-center rounded-xl bg-slate-900 text-white text-sm font-semibold py-2.5 hover:bg-black disabled:opacity-60"
+              >
+                {loading ? "Creando cuenta..." : "Crear Cuenta"}
+              </button>
+
+              <p className="text-xs text-center text-slate-500 mt-2">
+                ¿Ya tienes una cuenta?{" "}
+                <Link to="/login" className="font-semibold text-slate-800">
+                  Inicia sesión aquí
+                </Link>
+              </p>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmitClub} className="space-y-6">
+              <h2 className="text-base font-semibold text-slate-900 text-center">
+                Registro para Administradores
+              </h2>
+              <p className="text-xs text-slate-500 text-center mb-2">
+                Registra tu complejo deportivo en CanchaYa
+              </p>
+
+              {/* Información del club */}
+              <h3 className="text-sm font-semibold text-slate-900">
+                Información del Club
+              </h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Nombre del complejo *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ej: Complejo Deportivo Los Pinos"
+                    value={clubForm.nombreClub}
+                    onChange={(e) =>
+                      setClubForm((prev) => ({
+                        ...prev,
+                        nombreClub: e.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    NIT (Número de Identificación Tributaria) *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ej: 900123456-1"
+                    value={clubForm.nit}
+                    onChange={(e) =>
+                      setClubForm((prev) => ({ ...prev, nit: e.target.value }))
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Dirección completa *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ej: Carrera 15 #45-67"
+                    value={clubForm.direccion}
+                    onChange={(e) =>
+                      setClubForm((prev) => ({
+                        ...prev,
+                        direccion: e.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Ciudad *
+                  </label>
+                  <div className="grid grid-cols-[1.2fr,1.3fr] gap-2">
+                    <select
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={departamentoId}
+                      onChange={handleChangeDepartamento}
+                    >
+                      <option value="">Departamento</option>
+                      {(Array.isArray(departamentos) ? departamentos : []).map(
+                        (d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.nombre}
+                          </option>
+                        )
+                      )}
+                    </select>
+                    <select
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={clubForm.ciudadId}
+                      onChange={(e) =>
+                        setClubForm((prev) => ({
+                          ...prev,
+                          ciudadId: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Ciudad</option>
+                      {(Array.isArray(ciudades) ? ciudades : []).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Email del complejo *
+                  </label>
+                  <input
+                    type="email"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={clubForm.email}
+                    onChange={(e) =>
+                      setClubForm((prev) => ({ ...prev, email: e.target.value }))
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Teléfonos de contacto *
+                  </label>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-2 rounded-xl bg-slate-100 text-xs text-slate-600 border border-slate-200">
+                        +57
+                      </span>
+                      <input
+                        type="tel"
+                        className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="3001234567"
+                        value={clubForm.telefono1}
+                        onChange={(e) =>
+                          setClubForm((prev) => ({
+                            ...prev,
+                            telefono1: e.target.value,
+                          }))
+                        }
+                        required
+                      />
+                    </div>
+                    <input
+                      type="tel"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Teléfono adicional (opcional)"
+                      value={clubForm.telefono2}
+                      onChange={(e) =>
+                        setClubForm((prev) => ({
+                          ...prev,
+                          telefono2: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Descripción del complejo
+                </label>
+                <textarea
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  placeholder="Describe tu complejo deportivo, servicios, instalaciones, etc."
+                  value={clubForm.descripcion}
+                  onChange={(e) =>
+                    setClubForm((prev) => ({
+                      ...prev,
+                      descripcion: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              {/* Información operativa */}
+              <h3 className="text-sm font-semibold text-slate-900">
+                Información Operativa
+              </h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Horario de apertura *
+                  </label>
+                  <input
+                    type="time"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={clubForm.horaApertura}
+                    onChange={(e) =>
+                      setClubForm((prev) => ({
+                        ...prev,
+                        horaApertura: e.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Horario de cierre *
+                  </label>
+                  <input
+                    type="time"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={clubForm.horaCierre}
+                    onChange={(e) =>
+                      setClubForm((prev) => ({
+                        ...prev,
+                        horaCierre: e.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Días de operación con botones */}
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-2">
+                  Días de operación *
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {DIAS_SEMANA.map((dia) => {
+                    const activo = clubForm.diasOperacion.includes(dia);
+                    return (
+                      <button
+                        key={dia}
+                        type="button"
+                        onClick={() => toggleDiaOperacion(dia)}
+                        className={
+                          "px-3 py-1.5 rounded-full text-xs border transition " +
+                          (activo
+                            ? "bg-slate-900 text-white border-slate-900"
+                            : "bg-white text-slate-700 border-slate-200 hover:border-slate-400")
+                        }
+                      >
+                        {dia}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Deportes disponibles */}
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-2">
+                  Deportes disponibles *
+                </label>
+                <div className="grid md:grid-cols-3 gap-2 text-xs">
+                  {(Array.isArray(deportes) ? deportes : []).map((dep) => (
+                    <label
+                      key={dep.id}
+                      className="flex items-center gap-2 text-slate-700"
+                    >
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300"
+                        checked={clubForm.deportesDisponibles.includes(dep.id)}
+                        onChange={() => handleCheckboxDeporteClub(dep.id)}
+                      />
+                      <span>{dep.nombre}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Info sobre canchas */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[11px] text-slate-600">
+                <p className="font-semibold mb-1">
+                  Canchas y tarifas por hora
+                </p>
+                <p>
+                  Una vez completes tu registro e inicies sesión como
+                  administrador, podrás agregar tus canchas una por una (con su
+                  deporte, horarios y precios por hora) desde el panel de
+                  administración.
+                </p>
+              </div>
+
+              {/* Contraseña */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Contraseña *
+                  </label>
+                  <input
+                    type="password"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={clubForm.password}
+                    onChange={(e) =>
+                      setClubForm((prev) => ({
+                        ...prev,
+                        password: e.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Confirmar contraseña *
+                  </label>
+                  <input
+                    type="password"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={clubForm.passwordConfirm}
+                    onChange={(e) =>
+                      setClubForm((prev) => ({
+                        ...prev,
+                        passwordConfirm: e.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Términos */}
+              <div className="flex items-start gap-2 text-xs text-slate-700">
+                <input
+                  type="checkbox"
+                  className="mt-1 rounded border-slate-300"
+                  checked={clubForm.aceptaTerminos}
+                  onChange={(e) =>
+                    setClubForm((prev) => ({
+                      ...prev,
+                      aceptaTerminos: e.target.checked,
+                    }))
+                  }
+                  required
+                />
+                <span>
+                  Acepto los términos y condiciones y las políticas de
+                  privacidad.
+                </span>
+              </div>
+
+              {/* Botón */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 inline-flex items-center justify-center rounded-xl bg-slate-900 text-white text-sm font-semibold py-2.5 hover:bg-black disabled:opacity-60"
+              >
+                {loading ? "Registrando complejo..." : "Registrar Complejo"}
+              </button>
+
+              <p className="text-xs text-center text-slate-500 mt-2">
+                ¿Ya tienes una cuenta?{" "}
+                <Link to="/login" className="font-semibold text-slate-800">
+                  Inicia sesión aquí
+                </Link>
+              </p>
+            </form>
+          )}
+        </div>
       </main>
     </div>
   );

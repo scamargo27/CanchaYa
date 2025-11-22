@@ -1,0 +1,336 @@
+import React from "react";
+import { Link } from "react-router-dom";
+
+// 👇 Importa tus imágenes locales
+import logo from "./assets/logo-cancha.png";
+import heroImg from "./assets/hero-cancha.jpg";
+
+export default function HomePage() {
+  return (
+    <div className="min-h-screen bg-white flex flex-col">
+      {/* NAVBAR */}
+      <header className="w-full border-b border-gray-200">
+        <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-2">
+            <img
+              src={logo}
+              alt="Logo CanchaYa"
+              className="w-8 h-8"
+            />
+            <span className="font-extrabold text-xl text-blue-700">
+              CanchaYa
+            </span>
+          </div>
+
+          {/* 👇 NAV con dos botones */}
+          <nav className="flex items-center gap-6 text-sm text-slate-700">
+            <Link to="/login" className="font-semibold hover:underline">
+              Iniciar Sesión
+            </Link>
+
+            <Link
+              to="/registrarse"
+              className="font-semibold hover:underline text-blue-700"
+            >
+              Registrarse
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      {/* CONTENIDO PRINCIPAL */}
+      <main className="flex-1">
+        {/* HERO */}
+        <section className="max-w-6xl mx-auto px-6 py-12 lg:py-20 grid lg:grid-cols-2 gap-10 items-center">
+          {/* Texto */}
+          <div className="space-y-6">
+            <h1 className="text-4xl lg:text-5xl font-extrabold text-slate-900 leading-tight">
+              Reserva tu cancha
+              <br />
+              deportiva en segundos
+            </h1>
+
+            <p className="text-lg text-gray-600 max-w-xl">
+              La plataforma más completa para encontrar y reservar espacios
+              deportivos. Conectamos deportistas con los mejores complejos de la
+              ciudad.
+            </p>
+
+            {/* BOTONES HERO */}
+            <div className="flex flex-wrap gap-4">
+
+              {/* ❌ BOTÓN ELIMINADO
+              
+              <Link
+                to="/deportista/buscar"
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-black"
+              >
+                <span>🔍</span>
+                <span>Buscar Canchas</span>
+              </Link>
+              
+              */}
+
+              {/* Registrar club → registro */}
+              <Link
+                to="/registrarse"
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-xl border border-gray-300 bg-white text-sm font-semibold hover:bg-gray-50"
+              >
+                <span>🏢</span>
+                <span>Registrar mi Club</span>
+              </Link>
+            </div>
+
+            {/* MÉTRICAS */}
+            <div className="flex flex-wrap gap-10 pt-4 text-sm">
+              <div>
+                <p className="text-2xl font-bold text-slate-900">150+</p>
+                <p className="text-gray-500">Complejos Deportivos</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900">5000+</p>
+                <p className="text-gray-500">Reservas Realizadas</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-slate-900">4.8</p>
+                <p className="text-gray-500">Rating Promedio</p>
+              </div>
+            </div>
+          </div>
+
+          {/* IMAGEN CANCHA */}
+          <div className="flex justify-center">
+            <img
+              src={heroImg}
+              alt="Cancha deportiva"
+              className="w-full max-w-xl rounded-3xl object-cover shadow-xl"
+            />
+          </div>
+        </section>
+
+        {/* TODO LO QUE NECESITAS */}
+        <section id="features" className="bg-gray-50 py-16">
+          <div className="max-w-6xl mx-auto px-6">
+            <h2 className="text-3xl font-bold text-center text-slate-900">
+              Todo lo que necesitas en una plataforma
+            </h2>
+            <p className="text-center text-gray-500 mt-2 mb-10">
+              Simplificamos el proceso de reserva para deportistas y la gestión
+              para administradores de clubes.
+            </p>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              {/* 1 */}
+              <div className="bg-white rounded-3xl shadow-sm p-6 flex flex-col gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center">
+                  <span className="text-xl">🔍</span>
+                </div>
+                <h3 className="font-semibold text-slate-900">
+                  Búsqueda Inteligente
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Encuentra canchas por deporte, ubicación y disponibilidad.
+                  Filtros avanzados para encontrar exactamente lo que buscas.
+                </p>
+              </div>
+
+              {/* 2 */}
+              <div className="bg-white rounded-3xl shadow-sm p-6 flex flex-col gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-green-100 flex items-center justify-center">
+                  <span className="text-xl">📅</span>
+                </div>
+                <h3 className="font-semibold text-slate-900">
+                  Reservas en Tiempo Real
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Sistema de reservas instantáneo con confirmación automática.
+                  Ve la disponibilidad en tiempo real.
+                </p>
+              </div>
+
+              {/* 3 */}
+              <div className="bg-white rounded-3xl shadow-sm p-6 flex flex-col gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-100 flex items-center justify-center">
+                  <span className="text-xl">💳</span>
+                </div>
+                <h3 className="font-semibold text-slate-900">Pagos Seguros</h3>
+                <p className="text-sm text-gray-500">
+                  Procesa pagos de forma segura con múltiples métodos. Protección
+                  de comprador incluida.
+                </p>
+              </div>
+
+              {/* 4 */}
+              <div className="bg-white rounded-3xl shadow-sm p-6 flex flex-col gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center">
+                  <span className="text-xl">📊</span>
+                </div>
+                <h3 className="font-semibold text-slate-900">Panel de Control</h3>
+                <p className="text-sm text-gray-500">
+                  Dashboard completo para administradores con métricas y gestión
+                  de reservas.
+                </p>
+              </div>
+
+              {/* 5 */}
+              <div className="bg-white rounded-3xl shadow-sm p-6 flex flex-col gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-pink-100 flex	items-center justify-center">
+                  <span className="text-xl">📱</span>
+                </div>
+                <h3 className="font-semibold text-slate-900">Móvil Friendly</h3>
+                <p className="text-sm text-gray-500">
+                  Experiencia optimizada para móviles. Reserva desde cualquier
+                  dispositivo, en cualquier momento.
+                </p>
+              </div>
+
+              {/* 6 */}
+              <div className="bg-white rounded-3xl shadow-sm p-6 flex flex-col gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center">
+                  <span className="text-xl">🛡️</span>
+                </div>
+                <h3 className="font-semibold text-slate-900">
+                  Confianza y Seguridad
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Sistema de verificación de clubes y reseñas de usuarios.
+                  Tu seguridad es nuestra prioridad.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CÓMO FUNCIONA */}
+        <section className="bg-white py-16">
+          <div className="max-w-4xl mx-auto px-6 text-center">
+            <h2 className="text-3xl font-bold text-slate-900">
+              Cómo funciona
+            </h2>
+            <p className="text-gray-500 mt-2 mb-10">
+              Reserva tu cancha favorita en 3 simples pasos
+            </p>
+
+            <div className="grid md:grid-cols-3 gap-10 mt-4">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-bold">
+                  1
+                </div>
+                <h3 className="font-semibold text-slate-900">
+                  Busca tu cancha
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Usa nuestros filtros para encontrar la cancha perfecta cerca
+                  de ti.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-14 h-14 rounded-full bg-green-600 text-white flex items-center justify	center text-xl font-bold">
+                  2
+                </div>
+                <h3 className="font-semibold text-slate-900">
+                  Selecciona fecha y hora
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Elige el horario que mejor te convenga y confirma
+                  disponibilidad.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-14 h-14 rounded-full bg-purple-600 text-white flex items-center justify-center text-xl font-bold">
+                  3
+                </div>
+                <h3 className="font-semibold text-slate-900">Paga y juega</h3>
+                <p className="text-sm text-gray-500">
+                  Realiza el pago seguro y recibe la confirmación instantánea.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA AZUL */}
+        <section className="bg-blue-600 py-16 text-center text-white">
+          <h2 className="text-3xl font-bold mb-2">¿Listo para empezar?</h2>
+          <p className="text-blue-100 mb-6">
+            Únete a miles de deportistas que ya confían en CanchaYa
+          </p>
+
+          {/* 👇 Ahora los dos botones: Soy Deportista + Tengo un Club */}
+          <div className="flex flex-wrap justify-center gap-4">
+            <Link
+              to="/registrarse"
+              className="px-8 py-3 rounded-xl bg-white text-blue-700 text-sm font-semibold hover:bg-blue-50 inline-flex items-center gap-2"
+            >
+              <span>👤</span>
+              <span>Soy Deportista</span>
+            </Link>
+
+            <Link
+              to="/registrarse"
+              className="px-8 py-3 rounded-xl bg-blue-500 text-white text-sm font-semibold hover:bg-blue-400 inline-flex items-center gap-2"
+            >
+              <span>🏢</span>
+              <span>Tengo un Club</span>
+            </Link>
+          </div>
+        </section>
+      </main>
+
+      {/* FOOTER */}
+      <footer className="bg-slate-900 text-slate-200 pt-10 pb-6">
+        <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-4 gap-8 text-sm">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <img
+                src={logo}
+                alt="Logo CanchaYa"
+                className="w-6 h-6"
+              />
+              <span className="font-bold text-blue-400">CanchaYa</span>
+            </div>
+            <p className="text-slate-400">
+              La plataforma líder para reservar canchas deportivas.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-semibold mb-2">Para Deportistas</h4>
+            <ul className="space-y-1 text-slate-400">
+              <li>Buscar canchas</li>
+              <li>Hacer reservas</li>
+              <li>Ver historial</li>
+              <li>Valorar clubes</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-semibold mb-2">Para Clubes</h4>
+            <ul className="space-y-1 text-slate-400">
+              <li>Registrar club</li>
+              <li>Gestionar canchas</li>
+              <li>Ver estadísticas</li>
+              <li>Administrar reservas</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="font-semibold mb-2">Soporte</h4>
+            <ul className="space-y-1 text-slate-400">
+              <li>Centro de ayuda</li>
+              <li>Contacto</li>
+              <li>Términos y condiciones</li>
+              <li>Política de privacidad</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="max-w-6xl mx-auto px-6 mt-6 border-t border-slate-700 pt-4 text-xs text-slate-500 text-center">
+          © 2024 CanchaYa. Todos los derechos reservados.
+        </div>
+      </footer>
+    </div>
+  );
+}
